@@ -2,7 +2,12 @@
 
 import { refresh } from "next/cache";
 import { supabase } from "@/lib/supabase";
-import { REVIEW_STEPS, type ReviewStepKey } from "@/lib/review-steps";
+import {
+  DEMAND_STATUSES,
+  FEASIBILITY_OPTIONS,
+  REVIEW_STEPS,
+  type ReviewStepKey,
+} from "@/lib/review-steps";
 
 export type SaveResult = { ok: true } | { ok: false; error: string };
 
@@ -50,6 +55,93 @@ export async function updateReviewStep(formData: FormData): Promise<SaveResult> 
   }
   if (!data || data.length === 0) {
     return { ok: false, error: "저장할 요구안을 찾지 못했습니다." };
+  }
+
+  refresh();
+  return { ok: true };
+}
+
+export async function updateDemandStatus(formData: FormData): Promise<SaveResult> {
+  const demandId = Number(formData.get("demandId"));
+  const status = String(formData.get("status") ?? "");
+
+  if (!Number.isInteger(demandId)) {
+    return { ok: false, error: "잘못된 요청입니다." };
+  }
+  if (!(DEMAND_STATUSES as readonly string[]).includes(status)) {
+    return { ok: false, error: "허용되지 않는 상태값입니다." };
+  }
+
+  const { data, error } = await supabase
+    .from("demands")
+    .update({ status })
+    .eq("id", demandId)
+    .select("id");
+
+  if (error) {
+    return { ok: false, error: `저장하지 못했습니다. (${error.message})` };
+  }
+  if (!data || data.length === 0) {
+    return { ok: false, error: "저장할 요구안을 찾지 못했습니다." };
+  }
+
+  refresh();
+  return { ok: true };
+}
+
+export async function addWorkplaceReview(formData: FormData): Promise<SaveResult> {
+  const demandId = Number(formData.get("demandId"));
+  const workplaceName = String(formData.get("workplaceName") ?? "").trim();
+  const currentStatus = String(formData.get("currentStatus") ?? "").trim();
+  const feasibility = String(formData.get("feasibility") ?? "");
+  const opinion = String(formData.get("opinion") ?? "").trim();
+
+  if (!Number.isInteger(demandId)) {
+    return { ok: false, error: "잘못된 요청입니다." };
+  }
+  if (workplaceName === "") {
+    return { ok: false, error: "사업장명을 입력하세요." };
+  }
+  if (feasibility !== "" && !(FEASIBILITY_OPTIONS as readonly string[]).includes(feasibility)) {
+    return { ok: false, error: "허용되지 않는 실행가능성 값입니다." };
+  }
+
+  const { error } = await supabase.from("workplace_reviews").insert({
+    demand_id: demandId,
+    workplace_name: workplaceName,
+    current_status: currentStatus || null,
+    feasibility: feasibility || null,
+    opinion: opinion || null,
+  });
+
+  if (error) {
+    return { ok: false, error: `추가하지 못했습니다. (${error.message})` };
+  }
+
+  refresh();
+  return { ok: true };
+}
+
+export async function deleteWorkplaceReview(
+  demandId: number,
+  reviewId: number,
+): Promise<SaveResult> {
+  if (!Number.isInteger(demandId) || !Number.isInteger(reviewId)) {
+    return { ok: false, error: "잘못된 요청입니다." };
+  }
+
+  const { data, error } = await supabase
+    .from("workplace_reviews")
+    .delete()
+    .eq("id", reviewId)
+    .eq("demand_id", demandId)
+    .select("id");
+
+  if (error) {
+    return { ok: false, error: `삭제하지 못했습니다. (${error.message})` };
+  }
+  if (!data || data.length === 0) {
+    return { ok: false, error: "삭제할 회신을 찾지 못했습니다." };
   }
 
   refresh();

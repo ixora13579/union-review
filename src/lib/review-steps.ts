@@ -36,3 +36,9 @@ export const REVIEW_STEPS: Record<ReviewStepKey, ReviewStep> = {
     options: ["적법", "위법소지", "추가검토"],
   },
 };
+
+// 요구안 종합 상태(demands.status)
+export const DEMAND_STATUSES = ["검토중", "수용", "일부수용", "수용곤란"] as const;
+
+// 6단계 사업장 회신 실행가능성(workplace_reviews.feasibility)
+export const FEASIBILITY_OPTIONS = ["가능", "조건부", "곤란"] as const;

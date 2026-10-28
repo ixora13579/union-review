@@ -3,28 +3,9 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import { ReviewStepCard } from "./review-step-card";
-import { Badge, Card, Field, Text, Verdict } from "./ui";
-
-const STATUS_STYLES: Record<string, string> = {
-  검토중: "bg-gray-100 text-gray-700",
-  수용: "bg-green-100 text-green-700",
-  일부수용: "bg-blue-100 text-blue-700",
-  수용곤란: "bg-red-100 text-red-700",
-};
-
-const FEASIBILITY_STYLES: Record<string, string> = {
-  가능: "bg-green-100 text-green-700",
-  조건부: "bg-yellow-100 text-yellow-800",
-  곤란: "bg-red-100 text-red-700",
-};
-
-type WorkplaceReview = {
-  id: number;
-  workplace_name: string;
-  current_status: string | null;
-  feasibility: string | null;
-  opinion: string | null;
-};
+import { StatusField } from "./status-field";
+import { Card, Field, Text, Verdict } from "./ui";
+import { WorkplaceReviews, type WorkplaceReview } from "./workplace-reviews";
 
 type Demand = {
   id: number;
@@ -75,7 +56,7 @@ async function DemandDetail({ id }: { id: string }) {
             <Text value={demand.union_request} />
           </Field>
           <Field label="상태">
-            <Badge value={demand.status} styles={STATUS_STYLES} />
+            <StatusField demandId={demand.id} status={demand.status} />
           </Field>
         </dl>
       </Card>
@@ -121,42 +102,7 @@ async function DemandDetail({ id }: { id: string }) {
       />
 
       <Card title="6단계 현장실효성">
-        {demand.workplace_reviews.length === 0 ? (
-          <Verdict value={null} />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b border-gray-300 text-gray-500">
-                  <th className="px-3 py-2 font-medium">사업장</th>
-                  <th className="px-3 py-2 font-medium">현장현황</th>
-                  <th className="px-3 py-2 font-medium">실행가능성</th>
-                  <th className="px-3 py-2 font-medium">의견</th>
-                </tr>
-              </thead>
-              <tbody>
-                {demand.workplace_reviews.map((review) => (
-                  <tr key={review.id} className="border-b border-gray-200">
-                    <td className="whitespace-nowrap px-3 py-2">{review.workplace_name}</td>
-                    <td className="px-3 py-2">
-                      <Text value={review.current_status} />
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2">
-                      {review.feasibility ? (
-                        <Badge value={review.feasibility} styles={FEASIBILITY_STYLES} />
-                      ) : (
-                        <Verdict value={null} />
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      <Text value={review.opinion} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <WorkplaceReviews demandId={demand.id} reviews={demand.workplace_reviews} />
       </Card>
     </>
   );

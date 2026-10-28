@@ -2,6 +2,19 @@ import type { ReactNode } from "react";
 
 // 서버·클라이언트 컴포넌트에서 함께 쓰는 표시용 컴포넌트
 
+export const STATUS_STYLES: Record<string, string> = {
+  검토중: "bg-gray-100 text-gray-700",
+  수용: "bg-green-100 text-green-700",
+  일부수용: "bg-blue-100 text-blue-700",
+  수용곤란: "bg-red-100 text-red-700",
+};
+
+export const FEASIBILITY_STYLES: Record<string, string> = {
+  가능: "bg-green-100 text-green-700",
+  조건부: "bg-yellow-100 text-yellow-800",
+  곤란: "bg-red-100 text-red-700",
+};
+
 export function Card({
   title,
   action,
