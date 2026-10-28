@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 
@@ -20,6 +21,12 @@ export default function Home() {
       <Suspense fallback={<p className="text-lg text-gray-500">불러오는 중…</p>}>
         <DemandCount />
       </Suspense>
+      <Link
+        href="/demands"
+        className="rounded-lg bg-blue-600 px-5 py-2.5 font-medium text-white hover:bg-blue-700"
+      >
+        요구안 목록 보기
+      </Link>
     </main>
   );
 }
