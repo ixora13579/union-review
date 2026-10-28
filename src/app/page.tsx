@@ -1,7 +1,25 @@
+import { Suspense } from "react";
+import { supabase } from "@/lib/supabase";
+
+async function DemandCount() {
+  const { count, error } = await supabase
+    .from("demands")
+    .select("*", { count: "exact", head: true });
+
+  if (error) {
+    return <p className="text-red-600">요구안 개수를 불러오지 못했습니다.</p>;
+  }
+
+  return <p className="text-lg">요구안 {count ?? 0}건</p>;
+}
+
 export default function Home() {
   return (
-    <main className="flex flex-1 items-center justify-center p-8">
+    <main className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
       <h1 className="text-3xl font-bold">노조 요구안 검토 관리</h1>
+      <Suspense fallback={<p className="text-lg text-gray-500">불러오는 중…</p>}>
+        <DemandCount />
+      </Suspense>
     </main>
   );
 }
