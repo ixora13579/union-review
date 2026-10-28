@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Suspense, type ReactNode } from "react";
+import { Suspense } from "react";
 import { supabase } from "@/lib/supabase";
+import { ReviewStepCard } from "./review-step-card";
+import { Badge, Card, Field, Text, Verdict } from "./ui";
 
 const STATUS_STYLES: Record<string, string> = {
   검토중: "bg-gray-100 text-gray-700",
@@ -44,76 +46,6 @@ type Demand = {
   status: string;
   workplace_reviews: WorkplaceReview[];
 };
-
-function Card({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="rounded-lg border border-gray-200 p-5">
-      <h2 className="mb-4 text-lg font-bold">{title}</h2>
-      {children}
-    </section>
-  );
-}
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="grid gap-1 sm:grid-cols-[8rem_1fr] sm:gap-4">
-      <dt className="text-sm text-gray-500">{label}</dt>
-      <dd className="whitespace-pre-wrap">{children}</dd>
-    </div>
-  );
-}
-
-function Text({ value }: { value: string | null }) {
-  return value ? <>{value}</> : <span className="text-gray-400">-</span>;
-}
-
-function Badge({ value, styles }: { value: string; styles?: Record<string, string> }) {
-  return (
-    <span
-      className={`rounded px-2 py-0.5 text-sm font-medium ${styles?.[value] ?? "bg-blue-50 text-blue-700"}`}
-    >
-      {value}
-    </span>
-  );
-}
-
-// 판정이 비어 있으면 "미검토"로 회색 표시
-function Verdict({ value }: { value: string | null }) {
-  if (!value) {
-    return (
-      <span className="rounded bg-gray-100 px-2 py-0.5 text-sm font-medium text-gray-400">
-        미검토
-      </span>
-    );
-  }
-  return <Badge value={value} />;
-}
-
-function StepCard({
-  title,
-  verdict,
-  opinion,
-  children,
-}: {
-  title: string;
-  verdict: string | null;
-  opinion: string | null;
-  children?: ReactNode;
-}) {
-  return (
-    <Card title={title}>
-      <dl className="flex flex-col gap-3">
-        <Field label="판정">
-          <Verdict value={verdict} />
-        </Field>
-        {children}
-        <Field label="의견">
-          <Text value={opinion} />
-        </Field>
-      </dl>
-    </Card>
-  );
-}
 
 async function DemandDetail({ id }: { id: string }) {
   if (!/^\d+$/.test(id)) notFound();
@@ -159,34 +91,31 @@ async function DemandDetail({ id }: { id: string }) {
         </dl>
       </Card>
 
-      <StepCard
-        title="2단계 교섭대상 판단"
+      <ReviewStepCard
+        demandId={demand.id}
+        step="bargaining"
         verdict={demand.bargaining_subject}
         opinion={demand.bargaining_opinion}
       />
 
-      <StepCard
-        title="3단계 인사경영권 침해"
+      <ReviewStepCard
+        demandId={demand.id}
+        step="mgmt"
         verdict={demand.mgmt_right}
         opinion={demand.mgmt_right_opinion}
       />
 
-      <StepCard
-        title="4단계 예산수반"
+      <ReviewStepCard
+        demandId={demand.id}
+        step="budget"
         verdict={demand.budget_required}
         opinion={demand.budget_opinion}
-      >
-        <Field label="추정액(연간)">
-          {demand.budget_amount === null ? (
-            <span className="text-gray-400">-</span>
-          ) : (
-            `${demand.budget_amount.toLocaleString("ko-KR")}원`
-          )}
-        </Field>
-      </StepCard>
+        amount={demand.budget_amount}
+      />
 
-      <StepCard
-        title="5단계 법적검토"
+      <ReviewStepCard
+        demandId={demand.id}
+        step="legal"
         verdict={demand.legal_review}
         opinion={demand.legal_opinion}
       />
