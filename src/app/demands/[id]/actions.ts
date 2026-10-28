@@ -1,8 +1,10 @@
 "use server";
 
 import { refresh } from "next/cache";
+import { redirect } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import {
+  DEMAND_CATEGORIES,
   DEMAND_STATUSES,
   FEASIBILITY_OPTIONS,
   REVIEW_STEPS,
@@ -146,4 +148,70 @@ export async function deleteWorkplaceReview(
 
   refresh();
   return { ok: true };
+}
+
+export async function updateBasicInfo(formData: FormData): Promise<SaveResult> {
+  const text = (name: string) => String(formData.get(name) ?? "").trim();
+
+  const demandId = Number(formData.get("demandId"));
+  const demandNo = text("demandNo");
+  const category = text("category");
+  const title = text("title");
+
+  if (!Number.isInteger(demandId)) {
+    return { ok: false, error: "잘못된 요청입니다." };
+  }
+  if (demandNo === "" || category === "" || title === "") {
+    return { ok: false, error: "요구안번호, 분야, 제목은 꼭 입력하세요." };
+  }
+  if (!(DEMAND_CATEGORIES as readonly string[]).includes(category)) {
+    return { ok: false, error: "분야를 목록에서 고르세요." };
+  }
+
+  const { data, error } = await supabase
+    .from("demands")
+    .update({
+      demand_no: demandNo,
+      category,
+      title,
+      union_request: text("unionRequest") || null,
+    })
+    .eq("id", demandId)
+    .select("id");
+
+  if (error) {
+    // 23505: unique 제약 위반(요구안번호 중복)
+    if (error.code === "23505") {
+      return { ok: false, error: `이미 등록된 요구안번호입니다. (${demandNo})` };
+    }
+    return { ok: false, error: `저장하지 못했습니다. (${error.message})` };
+  }
+  if (!data || data.length === 0) {
+    return { ok: false, error: "저장할 요구안을 찾지 못했습니다." };
+  }
+
+  refresh();
+  return { ok: true };
+}
+
+// 사업장 회신은 workplace_reviews 외래키의 on delete cascade로 함께 지워진다
+export async function deleteDemand(demandId: number): Promise<SaveResult> {
+  if (!Number.isInteger(demandId)) {
+    return { ok: false, error: "잘못된 요청입니다." };
+  }
+
+  const { data, error } = await supabase
+    .from("demands")
+    .delete()
+    .eq("id", demandId)
+    .select("id");
+
+  if (error) {
+    return { ok: false, error: `삭제하지 못했습니다. (${error.message})` };
+  }
+  if (!data || data.length === 0) {
+    return { ok: false, error: "삭제할 요구안을 찾지 못했습니다." };
+  }
+
+  redirect("/demands");
 }

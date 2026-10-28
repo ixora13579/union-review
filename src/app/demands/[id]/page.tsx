@@ -2,9 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { supabase } from "@/lib/supabase";
+import { BasicInfoCard } from "./basic-info-card";
+import { DeleteDemandButton } from "./delete-demand-button";
 import { ReviewStepCard } from "./review-step-card";
-import { StatusField } from "./status-field";
-import { Card, Field, Text, Verdict } from "./ui";
+import { Card } from "./ui";
 import { WorkplaceReviews, type WorkplaceReview } from "./workplace-reviews";
 
 type Demand = {
@@ -47,30 +48,21 @@ async function DemandDetail({ id }: { id: string }) {
 
   return (
     <>
-      <Card title="기본정보">
-        <dl className="flex flex-col gap-3">
-          <Field label="요구안번호">{demand.demand_no}</Field>
-          <Field label="분야">{demand.category}</Field>
-          <Field label="제목">{demand.title}</Field>
-          <Field label="노조 요구내용">
-            <Text value={demand.union_request} />
-          </Field>
-          <Field label="상태">
-            <StatusField demandId={demand.id} status={demand.status} />
-          </Field>
-        </dl>
-      </Card>
+      <BasicInfoCard
+        demandId={demand.id}
+        demandNo={demand.demand_no}
+        category={demand.category}
+        title={demand.title}
+        unionRequest={demand.union_request}
+        status={demand.status}
+      />
 
-      <Card title="1단계 24년도 요구안">
-        <dl className="flex flex-col gap-3">
-          <Field label="24년 요구 내용">
-            <Text value={demand.prev_2024_request} />
-          </Field>
-          <Field label="24년 결과">
-            <Verdict value={demand.prev_2024_result} />
-          </Field>
-        </dl>
-      </Card>
+      <ReviewStepCard
+        demandId={demand.id}
+        step="prev2024"
+        verdict={demand.prev_2024_result}
+        opinion={demand.prev_2024_request}
+      />
 
       <ReviewStepCard
         demandId={demand.id}
@@ -104,6 +96,13 @@ async function DemandDetail({ id }: { id: string }) {
       <Card title="6단계 현장실효성">
         <WorkplaceReviews demandId={demand.id} reviews={demand.workplace_reviews} />
       </Card>
+
+      <DeleteDemandButton
+        demandId={demand.id}
+        demandNo={demand.demand_no}
+        title={demand.title}
+        reviewCount={demand.workplace_reviews.length}
+      />
     </>
   );
 }

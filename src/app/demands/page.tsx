@@ -120,9 +120,17 @@ export default function DemandsPage() {
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-8">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">요구안 목록</h1>
-        <Link href="/" className="text-sm text-gray-500 hover:underline">
-          처음으로
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link href="/" className="text-sm text-gray-500 hover:underline">
+            처음으로
+          </Link>
+          <Link
+            href="/demands/new"
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            요구안 등록
+          </Link>
+        </div>
       </div>
       <Suspense fallback={<p className="text-gray-500">불러오는 중…</p>}>
         <DemandList />

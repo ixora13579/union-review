@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useState } from "react";
 import { DEMAND_STATUSES } from "@/lib/review-steps";
 import { updateDemandStatus, type SaveResult } from "./actions";
 import { Badge, STATUS_STYLES } from "./ui";
@@ -43,7 +43,14 @@ function StatusForm({ demandId, status, onDone }: Props & { onDone: () => void }
   );
 
   return (
-    <form action={formAction}>
+    // form action으로 넘기면 React가 제출 후 입력칸을 초기화하므로, 실패 시에도 입력값이 남도록 직접 호출한다
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        const formData = new FormData(event.currentTarget);
+        startTransition(() => formAction(formData));
+      }}
+    >
       <input type="hidden" name="demandId" value={demandId} />
       <div className="flex flex-wrap items-center gap-2">
         <select

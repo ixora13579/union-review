@@ -1,5 +1,5 @@
-// 2~5단계 검토 항목. 판정값은 supabase/schema.sql 의 check 조건과 같아야 한다.
-export type ReviewStepKey = "bargaining" | "mgmt" | "budget" | "legal";
+// 1~5단계 검토 항목. 판정값은 supabase/schema.sql 의 check 조건과 같아야 한다.
+export type ReviewStepKey = "prev2024" | "bargaining" | "mgmt" | "budget" | "legal";
 
 type ReviewStep = {
   title: string;
@@ -7,9 +7,25 @@ type ReviewStep = {
   opinionColumn: string;
   amountColumn?: string;
   options: readonly string[];
+  // 기본값은 "판정"/"의견", 판정이 먼저 나온다
+  verdictLabel?: string;
+  opinionLabel?: string;
+  opinionFirst?: boolean;
 };
 
+// 1단계 24년 결과(demands.prev_2024_result)
+export const PREV_2024_RESULTS = ["수용", "일부수용", "불수용", "신규"] as const;
+
 export const REVIEW_STEPS: Record<ReviewStepKey, ReviewStep> = {
+  prev2024: {
+    title: "1단계 24년도 요구안",
+    verdictColumn: "prev_2024_result",
+    opinionColumn: "prev_2024_request",
+    options: PREV_2024_RESULTS,
+    verdictLabel: "24년 결과",
+    opinionLabel: "24년 요구 내용",
+    opinionFirst: true,
+  },
   bargaining: {
     title: "2단계 교섭대상 판단",
     verdictColumn: "bargaining_subject",
@@ -42,3 +58,6 @@ export const DEMAND_STATUSES = ["검토중", "수용", "일부수용", "수용�
 
 // 6단계 사업장 회신 실행가능성(workplace_reviews.feasibility)
 export const FEASIBILITY_OPTIONS = ["가능", "조건부", "곤란"] as const;
+
+// 요구안 분야(demands.category). DB에는 제약이 없고 화면에서만 이 목록으로 제한한다.
+export const DEMAND_CATEGORIES = ["휴가", "복지", "근로시간", "인사", "노조활동", "임금"] as const;
