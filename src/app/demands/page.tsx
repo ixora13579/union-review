@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { supabase } from "@/lib/supabase";
-
-const STATUSES = ["검토중", "수용", "일부수용", "수용곤란"] as const;
+import { DEMAND_CATEGORIES, DEMAND_STATUSES } from "@/lib/review-steps";
+import { DemandFilters, type Filters } from "./demand-filters";
 
 const STATUS_STYLES: Record<string, string> = {
   검토중: "bg-gray-100 text-gray-700",
@@ -42,31 +42,81 @@ function ReviewProgress({ done }: { done: number }) {
   );
 }
 
-async function DemandList() {
-  const { data, error } = await supabase
+// 주소의 검색 조건을 읽는다. 목록에 없는 값은 무시한다.
+function readFilters(searchParams: Record<string, string | string[] | undefined>): Filters {
+  const first = (value: string | string[] | undefined) =>
+    (Array.isArray(value) ? value[0] : value)?.trim() ?? "";
+  const category = first(searchParams.category);
+  const status = first(searchParams.status);
+  return {
+    category: (DEMAND_CATEGORIES as readonly string[]).includes(category) ? category : "",
+    status: (DEMAND_STATUSES as readonly string[]).includes(status) ? status : "",
+    q: first(searchParams.q),
+  };
+}
+
+function filtersHref(filters: Filters) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== "") params.set(key, value);
+  }
+  const query = params.toString();
+  return query ? `/demands?${query}` : "/demands";
+}
+
+async function DemandList({ filters }: { filters: Filters }) {
+  let query = supabase
     .from("demands")
     .select(
       "id, demand_no, category, title, status, bargaining_subject, mgmt_right, budget_required, legal_review",
     )
     .order("demand_no");
 
+  if (filters.category !== "") {
+    query = query.eq("category", filters.category);
+  }
+  if (filters.q !== "") {
+    // %, _ 를 글자 그대로 검색하도록 이스케이프
+    query = query.ilike("title", `%${filters.q.replace(/[\\%_]/g, "\\$&")}%`);
+  }
+
+  const { data, error } = await query;
+
   if (error) {
     return <p className="text-red-600">요구안 목록을 불러오지 못했습니다.</p>;
   }
 
-  const demands = data as Demand[];
+  // 상태 카드 개수는 분야·검색 조건만 반영하고, 표는 상태 조건까지 반영한다
+  const matched = data as Demand[];
+  const demands =
+    filters.status === ""
+      ? matched
+      : matched.filter((demand) => demand.status === filters.status);
 
   return (
     <>
+      <DemandFilters {...filters} />
+
       <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {STATUSES.map((status) => (
-          <div key={status} className="rounded-lg border border-gray-200 p-4">
-            <p className="text-sm text-gray-500">{status}</p>
-            <p className="mt-1 text-2xl font-bold">
-              {demands.filter((demand) => demand.status === status).length}건
-            </p>
-          </div>
-        ))}
+        {DEMAND_STATUSES.map((status) => {
+          const selected = filters.status === status;
+          return (
+            <Link
+              key={status}
+              // 선택된 카드를 다시 누르면 상태 조건을 해제한다
+              href={filtersHref({ ...filters, status: selected ? "" : status })}
+              aria-current={selected ? "true" : undefined}
+              className={`rounded-lg border p-4 hover:bg-gray-50 ${
+                selected ? "border-blue-600 ring-2 ring-blue-600" : "border-gray-200"
+              }`}
+            >
+              <p className="text-sm text-gray-500">{status}</p>
+              <p className="mt-1 text-2xl font-bold">
+                {matched.filter((demand) => demand.status === status).length}건
+              </p>
+            </Link>
+          );
+        })}
       </section>
 
       <section className="overflow-x-auto">
@@ -108,14 +158,18 @@ async function DemandList() {
           </tbody>
         </table>
         {demands.length === 0 && (
-          <p className="py-8 text-center text-gray-500">등록된 요구안이 없습니다.</p>
+          <p className="py-8 text-center text-gray-500">
+            {filtersHref(filters) === "/demands"
+              ? "등록된 요구안이 없습니다."
+              : "조건에 맞는 요구안이 없습니다."}
+          </p>
         )}
       </section>
     </>
   );
 }
 
-export default function DemandsPage() {
+export default function DemandsPage({ searchParams }: PageProps<"/demands">) {
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-8">
       <div className="flex items-center justify-between">
@@ -133,7 +187,9 @@ export default function DemandsPage() {
         </div>
       </div>
       <Suspense fallback={<p className="text-gray-500">불러오는 중…</p>}>
-        <DemandList />
+        {searchParams.then((params) => (
+          <DemandList filters={readFilters(params)} />
+        ))}
       </Suspense>
     </main>
   );
