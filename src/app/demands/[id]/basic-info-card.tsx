@@ -13,6 +13,8 @@ type Props = {
   title: string;
   unionRequest: string | null;
   status: string;
+  // 교섭담당만 수정할 수 있다
+  editable: boolean;
 };
 
 export function BasicInfoCard(props: Props) {
@@ -22,6 +24,7 @@ export function BasicInfoCard(props: Props) {
     <Card
       title="기본정보"
       action={
+        props.editable &&
         !editing && (
           <button
             type="button"
@@ -49,7 +52,11 @@ export function BasicInfoCard(props: Props) {
         {/* 상태는 기본정보 수정과 따로 변경한다 */}
         <dl>
           <Field label="상태">
-            <StatusField demandId={props.demandId} status={props.status} />
+            <StatusField
+              demandId={props.demandId}
+              status={props.status}
+              editable={props.editable}
+            />
           </Field>
         </dl>
       </div>

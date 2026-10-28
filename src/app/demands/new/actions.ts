@@ -1,12 +1,15 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { authorize } from "@/lib/auth";
 import { DEMAND_CATEGORIES, PREV_2024_RESULTS } from "@/lib/review-steps";
 
 export type CreateResult = { error: string };
 
 export async function createDemand(formData: FormData): Promise<CreateResult> {
+  const auth = await authorize(["교섭담당"]);
+  if (!auth.ok) return { error: auth.error };
+
   const text = (name: string) => String(formData.get(name) ?? "").trim();
 
   const demandNo = text("demandNo");
@@ -24,7 +27,7 @@ export async function createDemand(formData: FormData): Promise<CreateResult> {
     return { error: "허용되지 않는 24년 결과 값입니다." };
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await auth.supabase
     .from("demands")
     .insert({
       demand_no: demandNo,

@@ -1,8 +1,13 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { supabase } from "@/lib/supabase";
+import { getProfile } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+import { NoProfile } from "./no-profile";
 
 async function DemandCount() {
+  if (!(await getProfile())) return <NoProfile />;
+
+  const supabase = await createClient();
   const { count, error } = await supabase
     .from("demands")
     .select("*", { count: "exact", head: true });

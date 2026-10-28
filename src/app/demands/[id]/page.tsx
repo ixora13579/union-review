@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { supabase } from "@/lib/supabase";
+import { getProfile, isNegotiator } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+import { NoProfile } from "../../no-profile";
 import { BasicInfoCard } from "./basic-info-card";
 import { DeleteDemandButton } from "./delete-demand-button";
 import { ReviewStepCard } from "./review-step-card";
@@ -32,6 +34,12 @@ type Demand = {
 async function DemandDetail({ id }: { id: string }) {
   if (!/^\d+$/.test(id)) notFound();
 
+  const profile = await getProfile();
+  if (!profile) return <NoProfile />;
+  // 사업장담당은 요구안과 모든 회신을 보기만 하고, 자기 사업장 회신만 추가·수정·삭제한다
+  const editable = isNegotiator(profile);
+
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("demands")
     .select("*, workplace_reviews(id, workplace_name, current_status, feasibility, opinion)")
@@ -55,9 +63,11 @@ async function DemandDetail({ id }: { id: string }) {
         title={demand.title}
         unionRequest={demand.union_request}
         status={demand.status}
+        editable={editable}
       />
 
       <ReviewStepCard
+        editable={editable}
         demandId={demand.id}
         step="prev2024"
         verdict={demand.prev_2024_result}
@@ -65,6 +75,7 @@ async function DemandDetail({ id }: { id: string }) {
       />
 
       <ReviewStepCard
+        editable={editable}
         demandId={demand.id}
         step="bargaining"
         verdict={demand.bargaining_subject}
@@ -72,6 +83,7 @@ async function DemandDetail({ id }: { id: string }) {
       />
 
       <ReviewStepCard
+        editable={editable}
         demandId={demand.id}
         step="mgmt"
         verdict={demand.mgmt_right}
@@ -79,6 +91,7 @@ async function DemandDetail({ id }: { id: string }) {
       />
 
       <ReviewStepCard
+        editable={editable}
         demandId={demand.id}
         step="budget"
         verdict={demand.budget_required}
@@ -87,6 +100,7 @@ async function DemandDetail({ id }: { id: string }) {
       />
 
       <ReviewStepCard
+        editable={editable}
         demandId={demand.id}
         step="legal"
         verdict={demand.legal_review}
@@ -94,15 +108,22 @@ async function DemandDetail({ id }: { id: string }) {
       />
 
       <Card title="6단계 현장실효성">
-        <WorkplaceReviews demandId={demand.id} reviews={demand.workplace_reviews} />
+        <WorkplaceReviews
+          demandId={demand.id}
+          reviews={demand.workplace_reviews}
+          role={profile.role}
+          myWorkplace={profile.workplaceName}
+        />
       </Card>
 
-      <DeleteDemandButton
-        demandId={demand.id}
-        demandNo={demand.demand_no}
-        title={demand.title}
-        reviewCount={demand.workplace_reviews.length}
-      />
+      {editable && (
+        <DeleteDemandButton
+          demandId={demand.id}
+          demandNo={demand.demand_no}
+          title={demand.title}
+          reviewCount={demand.workplace_reviews.length}
+        />
+      )}
     </>
   );
 }

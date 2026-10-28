@@ -11,9 +11,11 @@ type Props = {
   verdict: string | null;
   opinion: string | null;
   amount?: number | null;
+  // 교섭담당만 수정할 수 있다
+  editable?: boolean;
 };
 
-export function ReviewStepCard({ demandId, step, verdict, opinion, amount }: Props) {
+export function ReviewStepCard({ demandId, step, verdict, opinion, amount, editable }: Props) {
   const [editing, setEditing] = useState(false);
   const { title, amountColumn, verdictLabel = "판정", opinionLabel = "의견", opinionFirst } =
     REVIEW_STEPS[step];
@@ -42,6 +44,7 @@ export function ReviewStepCard({ demandId, step, verdict, opinion, amount }: Pro
     <Card
       title={title}
       action={
+        editable &&
         !editing && (
           <button
             type="button"

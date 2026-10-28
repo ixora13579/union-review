@@ -8,10 +8,15 @@ import { Badge, STATUS_STYLES } from "./ui";
 type Props = {
   demandId: number;
   status: string;
+  editable?: boolean;
 };
 
-export function StatusField({ demandId, status }: Props) {
+export function StatusField({ demandId, status, editable }: Props) {
   const [editing, setEditing] = useState(false);
+
+  if (!editable) {
+    return <Badge value={status} styles={STATUS_STYLES} />;
+  }
 
   if (editing) {
     return <StatusForm demandId={demandId} status={status} onDone={() => setEditing(false)} />;

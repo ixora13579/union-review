@@ -2,18 +2,25 @@
 
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { authorize, type Profile } from "@/lib/auth";
 import {
   DEMAND_CATEGORIES,
   DEMAND_STATUSES,
   FEASIBILITY_OPTIONS,
   REVIEW_STEPS,
+  WORKPLACES,
   type ReviewStepKey,
 } from "@/lib/review-steps";
 
 export type SaveResult = { ok: true } | { ok: false; error: string };
 
+// 요구안 자체(기본정보·상태·1~5단계·삭제)는 교섭담당만 바꿀 수 있다
+const NEGOTIATOR = ["교섭담당"] as const;
+
 export async function updateReviewStep(formData: FormData): Promise<SaveResult> {
+  const auth = await authorize(NEGOTIATOR);
+  if (!auth.ok) return auth;
+
   const demandId = Number(formData.get("demandId"));
   const stepKey = String(formData.get("step"));
 
@@ -46,7 +53,7 @@ export async function updateReviewStep(formData: FormData): Promise<SaveResult> 
     values[step.amountColumn] = amount === "" ? null : Number(amount);
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await auth.supabase
     .from("demands")
     .update(values)
     .eq("id", demandId)
@@ -64,6 +71,9 @@ export async function updateReviewStep(formData: FormData): Promise<SaveResult> 
 }
 
 export async function updateDemandStatus(formData: FormData): Promise<SaveResult> {
+  const auth = await authorize(NEGOTIATOR);
+  if (!auth.ok) return auth;
+
   const demandId = Number(formData.get("demandId"));
   const status = String(formData.get("status") ?? "");
 
@@ -74,7 +84,7 @@ export async function updateDemandStatus(formData: FormData): Promise<SaveResult
     return { ok: false, error: "허용되지 않는 상태값입니다." };
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await auth.supabase
     .from("demands")
     .update({ status })
     .eq("id", demandId)
@@ -91,66 +101,10 @@ export async function updateDemandStatus(formData: FormData): Promise<SaveResult
   return { ok: true };
 }
 
-export async function addWorkplaceReview(formData: FormData): Promise<SaveResult> {
-  const demandId = Number(formData.get("demandId"));
-  const workplaceName = String(formData.get("workplaceName") ?? "").trim();
-  const currentStatus = String(formData.get("currentStatus") ?? "").trim();
-  const feasibility = String(formData.get("feasibility") ?? "");
-  const opinion = String(formData.get("opinion") ?? "").trim();
-
-  if (!Number.isInteger(demandId)) {
-    return { ok: false, error: "잘못된 요청입니다." };
-  }
-  if (workplaceName === "") {
-    return { ok: false, error: "사업장명을 입력하세요." };
-  }
-  if (feasibility !== "" && !(FEASIBILITY_OPTIONS as readonly string[]).includes(feasibility)) {
-    return { ok: false, error: "허용되지 않는 실행가능성 값입니다." };
-  }
-
-  const { error } = await supabase.from("workplace_reviews").insert({
-    demand_id: demandId,
-    workplace_name: workplaceName,
-    current_status: currentStatus || null,
-    feasibility: feasibility || null,
-    opinion: opinion || null,
-  });
-
-  if (error) {
-    return { ok: false, error: `추가하지 못했습니다. (${error.message})` };
-  }
-
-  refresh();
-  return { ok: true };
-}
-
-export async function deleteWorkplaceReview(
-  demandId: number,
-  reviewId: number,
-): Promise<SaveResult> {
-  if (!Number.isInteger(demandId) || !Number.isInteger(reviewId)) {
-    return { ok: false, error: "잘못된 요청입니다." };
-  }
-
-  const { data, error } = await supabase
-    .from("workplace_reviews")
-    .delete()
-    .eq("id", reviewId)
-    .eq("demand_id", demandId)
-    .select("id");
-
-  if (error) {
-    return { ok: false, error: `삭제하지 못했습니다. (${error.message})` };
-  }
-  if (!data || data.length === 0) {
-    return { ok: false, error: "삭제할 회신을 찾지 못했습니다." };
-  }
-
-  refresh();
-  return { ok: true };
-}
-
 export async function updateBasicInfo(formData: FormData): Promise<SaveResult> {
+  const auth = await authorize(NEGOTIATOR);
+  if (!auth.ok) return auth;
+
   const text = (name: string) => String(formData.get(name) ?? "").trim();
 
   const demandId = Number(formData.get("demandId"));
@@ -168,7 +122,7 @@ export async function updateBasicInfo(formData: FormData): Promise<SaveResult> {
     return { ok: false, error: "분야를 목록에서 고르세요." };
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await auth.supabase
     .from("demands")
     .update({
       demand_no: demandNo,
@@ -194,13 +148,127 @@ export async function updateBasicInfo(formData: FormData): Promise<SaveResult> {
   return { ok: true };
 }
 
-// 사업장 회신은 workplace_reviews 외래키의 on delete cascade로 함께 지워진다
-export async function deleteDemand(demandId: number): Promise<SaveResult> {
+// 사업장 회신 입력값 확인. 사업장담당은 입력값과 상관없이 자기 사업장으로 저장한다.
+function readReviewFields(formData: FormData, profile: Profile) {
+  const text = (name: string) => String(formData.get(name) ?? "").trim();
+
+  const workplaceName =
+    profile.role === "사업장담당" ? profile.workplaceName : text("workplaceName");
+  const feasibility = text("feasibility");
+
+  if (!workplaceName || !(WORKPLACES as readonly string[]).includes(workplaceName)) {
+    return { ok: false as const, error: "사업장을 목록에서 고르세요." };
+  }
+  if (feasibility !== "" && !(FEASIBILITY_OPTIONS as readonly string[]).includes(feasibility)) {
+    return { ok: false as const, error: "허용되지 않는 실행가능성 값입니다." };
+  }
+
+  return {
+    ok: true as const,
+    values: {
+      workplace_name: workplaceName,
+      current_status: text("currentStatus") || null,
+      feasibility: feasibility || null,
+      opinion: text("opinion") || null,
+    },
+  };
+}
+
+export async function addWorkplaceReview(formData: FormData): Promise<SaveResult> {
+  const auth = await authorize();
+  if (!auth.ok) return auth;
+
+  const demandId = Number(formData.get("demandId"));
   if (!Number.isInteger(demandId)) {
     return { ok: false, error: "잘못된 요청입니다." };
   }
 
-  const { data, error } = await supabase
+  const fields = readReviewFields(formData, auth.profile);
+  if (!fields.ok) return fields;
+
+  const { error } = await auth.supabase
+    .from("workplace_reviews")
+    .insert({ demand_id: demandId, ...fields.values });
+
+  if (error) {
+    return { ok: false, error: `추가하지 못했습니다. (${error.message})` };
+  }
+
+  refresh();
+  return { ok: true };
+}
+
+export async function updateWorkplaceReview(formData: FormData): Promise<SaveResult> {
+  const auth = await authorize();
+  if (!auth.ok) return auth;
+
+  const demandId = Number(formData.get("demandId"));
+  const reviewId = Number(formData.get("reviewId"));
+  if (!Number.isInteger(demandId) || !Number.isInteger(reviewId)) {
+    return { ok: false, error: "잘못된 요청입니다." };
+  }
+
+  const fields = readReviewFields(formData, auth.profile);
+  if (!fields.ok) return fields;
+
+  // 사업장담당이 다른 사업장 회신을 고치려 하면 RLS 때문에 바뀌는 줄이 없다
+  const { data, error } = await auth.supabase
+    .from("workplace_reviews")
+    .update(fields.values)
+    .eq("id", reviewId)
+    .eq("demand_id", demandId)
+    .select("id");
+
+  if (error) {
+    return { ok: false, error: `저장하지 못했습니다. (${error.message})` };
+  }
+  if (!data || data.length === 0) {
+    return { ok: false, error: "수정할 회신을 찾지 못했거나 권한이 없습니다." };
+  }
+
+  refresh();
+  return { ok: true };
+}
+
+export async function deleteWorkplaceReview(
+  demandId: number,
+  reviewId: number,
+): Promise<SaveResult> {
+  const auth = await authorize();
+  if (!auth.ok) return auth;
+
+  if (!Number.isInteger(demandId) || !Number.isInteger(reviewId)) {
+    return { ok: false, error: "잘못된 요청입니다." };
+  }
+
+  const { data, error } = await auth.supabase
+    .from("workplace_reviews")
+    .delete()
+    .eq("id", reviewId)
+    .eq("demand_id", demandId)
+    .select("id");
+
+  if (error) {
+    return { ok: false, error: `삭제하지 못했습니다. (${error.message})` };
+  }
+  if (!data || data.length === 0) {
+    return { ok: false, error: "삭제할 회신을 찾지 못했거나 권한이 없습니다." };
+  }
+
+  refresh();
+  return { ok: true };
+}
+
+// 사업장 회신은 workplace_reviews 외래키의 on delete cascade로 함께 지워진다
+export async function deleteDemand(demandId: number): Promise<SaveResult> {
+  const auth = await authorize(NEGOTIATOR);
+  if (!auth.ok) return auth;
+
+  if (!Number.isInteger(demandId)) {
+    return { ok: false, error: "잘못된 요청입니다." };
+  }
+
+  const { data, error } = await auth.supabase
     .from("demands")
     .delete()
     .eq("id", demandId)

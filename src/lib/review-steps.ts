@@ -61,3 +61,6 @@ export const FEASIBILITY_OPTIONS = ["가능", "조건부", "곤란"] as const;
 
 // 요구안 분야(demands.category). DB에는 제약이 없고 화면에서만 이 목록으로 제한한다.
 export const DEMAND_CATEGORIES = ["휴가", "복지", "근로시간", "인사", "노조활동", "임금"] as const;
+
+// 사업장 목록. 사업장담당 프로필의 workplace_name, 회신의 workplace_name 과 글자가 같아야 한다.
+export const WORKPLACES = ["가상 A사업소", "가상 B사업소", "가상 C사업소"] as const;

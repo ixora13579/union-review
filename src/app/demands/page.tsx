@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { supabase } from "@/lib/supabase";
+import { getProfile, isNegotiator } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { DEMAND_CATEGORIES, DEMAND_STATUSES } from "@/lib/review-steps";
+import { NoProfile } from "../no-profile";
 import { DemandFilters, type Filters } from "./demand-filters";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -64,7 +66,23 @@ function filtersHref(filters: Filters) {
   return query ? `/demands?${query}` : "/demands";
 }
 
+// 요구안 등록은 교섭담당만 할 수 있다
+async function RegisterButton() {
+  if (!isNegotiator(await getProfile())) return null;
+  return (
+    <Link
+      href="/demands/new"
+      className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+    >
+      요구안 등록
+    </Link>
+  );
+}
+
 async function DemandList({ filters }: { filters: Filters }) {
+  if (!(await getProfile())) return <NoProfile />;
+
+  const supabase = await createClient();
   let query = supabase
     .from("demands")
     .select(
@@ -178,12 +196,9 @@ export default function DemandsPage({ searchParams }: PageProps<"/demands">) {
           <Link href="/" className="text-sm text-gray-500 hover:underline">
             처음으로
           </Link>
-          <Link
-            href="/demands/new"
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            요구안 등록
-          </Link>
+          <Suspense>
+            <RegisterButton />
+          </Suspense>
         </div>
       </div>
       <Suspense fallback={<p className="text-gray-500">불러오는 중…</p>}>
